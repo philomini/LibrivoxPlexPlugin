@@ -1,0 +1,8 @@
+[
+  {
+    "id":"pagesize",
+    "label":"Number of entries per page",
+    "type":"text",
+    "default":"10"
+  }
+]

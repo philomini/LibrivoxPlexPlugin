@@ -1,0 +1,59 @@
+"""
+This is a rough attempt to get librivox searches into the main Plex search
+interface. I had difficulty getting this code to interface with the rest
+of the plugin, so it just xpaths its way through the librivox results.
+"""
+import re
+
+SEARCH_URL = 'https://catalog.librivox.org/search_xml.php?extended=1&simple='
+HTTP.CacheTime = CACHE_1HOUR
+
+title_re = re.compile('(?:(.*?)\. )?"(.*?)(?:, (A|The))?(?: (\\(Version \d+\\)))?".*$')
+
+def Search(query):
+    limit = 10
+    oc = ObjectContainer(title1 = 'Search Results')
+    count = 0
+    for book in XML.ElementFromURL(SEARCH_URL  + query).xpath("//book"):
+        try:
+            count = count + 1
+            if count == limit:
+                break
+            url = book.xpath("url")[0].text
+            librivox_id = book.xpath("id")[0].text
+            author, title = SplitTitle(book.xpath("title")[0].text)
+            description = String.StripTags(book.xpath("./description")[0].text)
+
+            html = thumb = None
+            try:
+                html = HTML.ElementFromURL(book.xpath(".//url")[0].text)
+                thumb = html.xpath("//div[@class='cd-cover']//img/@src")[0]
+            except:
+                pass
+
+            oc.add(
+                AlbumObject(
+                    key = "/music/librivox/%s/tracks" % (librivox_id),
+                    rating_key = "/music/librivox/%s/tracks" % (librivox_id),
+                    genres = book.xpath("Genre")[0].text.split(", "),
+                    artist = author,
+                    title = title,
+                    summary = description,
+                    track_count = int(book.xpath("NumberOfSections")[0].text),
+                    thumb = thumb))
+        except:
+            pass
+    return oc
+
+def SplitTitle(title):
+    Log("Splitting " + title)
+    m = title_re.match(title)
+
+    author = m.group(1)
+
+    title = m.group(2)
+    if m.group(3) is not None:
+        title = m.group(3) + " " + title
+    if m.group(4) is not None:
+        title = title + " " + m.group(4)
+    return (author, title)
