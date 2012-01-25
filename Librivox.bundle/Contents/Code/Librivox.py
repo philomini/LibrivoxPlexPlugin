@@ -12,6 +12,7 @@ the plugin's Dict so that it won't need to be downloaded multiple times.
 import re
 
 METADATA_URL = 'https://catalog.librivox.org/search_xml.php?extended=1&id='
+DEFAULT_RSS_URL = 'http://librivox.org/rss/'
 Books = {}
 
 title_re = re.compile('(?:(.*?)\. )?"(.*?)(?:, (A|The))?(?: (\\(Version \d+\\)))?".*$')
@@ -119,9 +120,14 @@ class Book():
         """
         if self.feed is None:
             self.load_metadata()
-            Log("Metadata is " + XML.StringFromElement(self.metadata))
-            Log("Feed URL is " + self.metadata.xpath(".//rssurl")[0].text)
-            self.feed = HTML.ElementFromURL(self.metadata.xpath(".//rssurl")[0].text)
+
+            feed_url = self.metadata.xpath(".//rssurl")[0]
+            if feed_url is '':
+                # https://catalog.librivox.org/search_xml.php?id=5827 has
+                # missing rssurl, but http://librivox.org/rss/{librivox_id}
+                # works
+                feed_url = DEFAULT_RSS_URL + self.librivox_id
+            self.feed = HTML.ElementFromURL(feed_url)
 
     def parse_title(self, title):
         """
@@ -196,11 +202,22 @@ class Book():
             res = []
             for track in range(int(self.feed.xpath("count(//item)"))):
                 index = track + 1
+                nameinfo = None
+                try:
+                    nameinfo = self.page.xpath("//ul[@id='chapters']/li")[track]
+                except:
+                    # http://librivox.org/aesops-fables-volume-1-fables-1-25/
+                    # is missing the chapters id attribute in the section
+                    # containing the mp3 and ogg links, so we'll assume
+                    # any ul that has an mp3 in it is ok
+                    nameinfo = self.page.xpath(
+                        "//ul/li[contains(./a/@href, '.mp3')]")[track]
+
                 res.append(
                     Track(
                         index,
                         self.feed.xpath("//item["+str(index)+"]")[0],
-                        self.page.xpath("//ul[@id='chapters']/li")[track]))
+                        nameinfo))
             self.tracks = res
         return self.tracks
 
