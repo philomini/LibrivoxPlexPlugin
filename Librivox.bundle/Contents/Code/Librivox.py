@@ -121,7 +121,8 @@ class Book():
         if self.feed is None:
             self.load_metadata()
 
-            feed_url = self.metadata.xpath(".//rssurl")[0]
+            feed_url = self.metadata.xpath(".//rssurl")[0].text
+            Log("Loading metadata from \"" + feed_url + "\"")
             if feed_url is '':
                 # https://catalog.librivox.org/search_xml.php?id=5827 has
                 # missing rssurl, but http://librivox.org/rss/{librivox_id}
